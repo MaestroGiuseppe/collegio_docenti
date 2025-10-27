@@ -10,13 +10,15 @@ export default function Home() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        color: 'white',
+        padding: 40,
+        textAlign: 'center',
       }}
     >
-      <h1 style={{ fontSize: '4rem', marginBottom: '40px', color: 'white', textShadow: '2px 2px 4px rgba(0,0,0,0.4)' }}>
+      <h1 style={{ fontSize: '4rem', marginBottom: 40, textShadow: '2px 2px 4px rgba(0,0,0,0.4)' }}>
         PANNELLO DI CONTROLLO VOTAZIONE
       </h1>
-      <div style={{ display: 'flex', gap: '50px' }}>
+      <div style={{ display: 'flex', gap: 50 }}>
         <a
           href="/vote"
           style={{
@@ -24,7 +26,7 @@ export default function Home() {
             fontSize: '2rem',
             backgroundColor: '#22c55e',
             color: 'white',
-            borderRadius: '15px',
+            borderRadius: 15,
             fontWeight: 'bold',
             textDecoration: 'none',
             boxShadow: '0 6px 12px rgba(34, 197, 94, 0.5)',
@@ -39,7 +41,7 @@ export default function Home() {
             fontSize: '2rem',
             backgroundColor: '#3b82f6',
             color: 'white',
-            borderRadius: '15px',
+            borderRadius: 15,
             fontWeight: 'bold',
             textDecoration: 'none',
             boxShadow: '0 6px 12px rgba(59, 130, 246, 0.5)',
