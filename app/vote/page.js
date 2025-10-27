@@ -111,3 +111,77 @@ export default function VotePage() {
               border: 'none',
               backgroundColor: '#22c55e',
               color: 'white',
+              fontWeight: '600',
+              cursor: 'pointer',
+              boxShadow: '0 3px 8px rgba(34, 197, 94, 0.25)',
+            }}
+          >
+            Verifica
+          </button>
+        )}
+      </div>
+      {message && (
+        <div style={{ margin: '15px 0', color: voteSent ? '#16a34a' : '#fee440', fontWeight: 'bold' }}>
+          {message}
+        </div>
+      )}
+      {isVotingActive && !voteSent && (
+        <div style={{ display: 'flex', gap: 30, marginTop: 18 }}>
+          <button
+            onClick={() => submitVote('favorevole')}
+            style={{
+              padding: '16px 40px',
+              backgroundColor: '#10b981',
+              fontSize: '1.3rem',
+              color: 'white',
+              borderRadius: 12,
+              border: 'none',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: '0 5px 10px rgba(16,185,129,0.3)',
+            }}
+          >
+            Favorevole
+          </button>
+          <button
+            onClick={() => submitVote('contrario')}
+            style={{
+              padding: '16px 40px',
+              backgroundColor: '#ef4444',
+              fontSize: '1.3rem',
+              color: 'white',
+              borderRadius: 12,
+              border: 'none',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: '0 5px 10px rgba(239,68,68,0.3)',
+            }}
+          >
+            Contrario
+          </button>
+          <button
+            onClick={() => submitVote('astenuto')}
+            style={{
+              padding: '16px 40px',
+              backgroundColor: '#fbbf24',
+              fontSize: '1.3rem',
+              color: 'white',
+              borderRadius: 12,
+              border: 'none',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: '0 5px 10px rgba(251,191,36,0.3)',
+            }}
+          >
+            Astenuto
+          </button>
+        </div>
+      )}
+      {voteSent && (
+        <div style={{ marginTop: 30, fontSize: '1.25rem', color: '#d1fae5' }}>
+          Hai già espresso il tuo voto.
+        </div>
+      )}
+    </div>
+  );
+}
