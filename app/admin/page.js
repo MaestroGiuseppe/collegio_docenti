@@ -28,11 +28,21 @@ export default function AdminPage() {
   useEffect(() => {
     fetchSession();
     fetchStats();
-    const interval = setInterval(() => {
-      fetchSession();
-      fetchStats();
-    }, 5000);
-    return () => clearInterval(interval);
+
+    const subscription = supabase
+      .channel('votes-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'votes' },
+        () => {
+          fetchStats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, [sessionCode]);
 
   async function fetchSession() {
@@ -89,7 +99,6 @@ export default function AdminPage() {
     }
     setLoading(true);
 
-    // Se la sessione esiste già, non incrementare delibera_number
     const { data: existingSession } = await supabase
       .from('sessions')
       .select('code')
@@ -97,7 +106,6 @@ export default function AdminPage() {
       .single();
 
     if (!existingSession) {
-      // Nuova sessione, inizializza delibera_number a 0 (viene incrementata quando si attiva)
       await supabase.from('sessions').insert([{ code: inputCode, is_active: false, delibera_number: 0 }]);
       setDeliberaNumber(0);
     }
@@ -112,7 +120,6 @@ export default function AdminPage() {
     setLoading(true);
 
     if (!isActive) {
-      // Attivazione votazione: incremento delibera_number
       const { data, error } = await supabase
         .from('sessions')
         .select('delibera_number')
@@ -132,7 +139,6 @@ export default function AdminPage() {
       setDeliberaNumber(newDeliberaNumber);
       setIsActive(true);
     } else {
-      // Disattivazione votazione senza cambiare delibera_number
       await supabase
         .from('sessions')
         .update({ is_active: false })
