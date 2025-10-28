@@ -16,7 +16,7 @@ export default function VotePage() {
   useEffect(() => {
     let interval;
     if (step === 2 && sessionCode) {
-      // Polling ogni 5 secondi per aggiornare stato votazione e numero delibera
+      // Aggiorna stato votazione e numero delibera ogni 5 secondi
       interval = setInterval(async () => {
         const { data, error } = await supabase
           .from('sessions')
@@ -28,6 +28,8 @@ export default function VotePage() {
           setDeliberaNumber(data.delibera_number);
         }
       }, 5000);
+      // Controlla se utente ha già votato per disabilitare pulsanti
+      checkIfUserVoted();
     }
     return () => clearInterval(interval);
   }, [step, sessionCode]);
@@ -54,7 +56,7 @@ export default function VotePage() {
     setStep(2);
     setIsVotingActive(data.is_active);
     setDeliberaNumber(data.delibera_number);
-    checkIfUserVoted(); // controlla se utente ha già votato
+    checkIfUserVoted(); // controlla subito se ha già votato
     setMessage('');
   }
 
@@ -79,16 +81,23 @@ export default function VotePage() {
       setMessage('Nome e cognome obbligatori.');
       return;
     }
+
+    // Blocca ulteriori click subito
+    if (voteSent) {
+      setMessage('Hai già espresso il tuo voto.');
+      return;
+    }
+
     const { error } = await supabase
       .from('votes')
       .insert([{ user_name: userFullName, session_code: sessionCode, vote }]);
+
     if (error) {
-      setMessage('Grazie per aver votato.');
+      setMessage('Errore: Hai probabilmente già votato.');
     } else {
       setVoteSent(true);
       setMessage('Voto registrato! Grazie per la partecipazione.');
-      // Disabilita subito i pulsanti dopo il voto
-      setIsVotingActive(false);
+      // Disabilita i pulsanti subito
     }
   }
 
@@ -195,7 +204,7 @@ export default function VotePage() {
       {step === 2 && (
         <>
           <h1 style={{ fontSize: '3rem', marginBottom: 4 }}>
-            Delibera n° {deliberaNumber || '?'}
+            Delibera n° {deliberaNumber ?? '?'}
           </h1>
           <h2 style={{ fontSize: '1.8rem', marginBottom: 24 }}>Esprimi il tuo voto</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center' }}>
