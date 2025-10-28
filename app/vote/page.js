@@ -4,19 +4,22 @@ import { useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function VotePage() {
-  const [userName, setUserName] = useState('');
+  const [nome, setNome] = useState('');
+  const [cognome, setCognome] = useState('');
   const [sessionCode, setSessionCode] = useState('');
-  const [isSessionValid, setIsSessionValid] = useState(false);
+  const [step, setStep] = useState(1);
   const [isVotingActive, setIsVotingActive] = useState(false);
   const [message, setMessage] = useState('');
   const [voteSent, setVoteSent] = useState(false);
 
-  async function checkSession() {
+  async function verificaSessione() {
     setMessage('');
-    setIsSessionValid(false);
-    setIsVotingActive(false);
     if (!sessionCode) {
       setMessage('Inserisci il codice sessione.');
+      return;
+    }
+    if (!nome || !cognome) {
+      setMessage('Inserisci nome e cognome.');
       return;
     }
     const { data, error } = await supabase
@@ -32,26 +35,34 @@ export default function VotePage() {
       setMessage('La votazione non è attiva.');
       return;
     }
-    setIsSessionValid(true);
     setIsVotingActive(true);
-    setMessage('Sessione trovata! Ora puoi votare.');
+    setStep(2);
+    setMessage('');
   }
 
   async function submitVote(vote) {
-    if (!userName) {
-      setMessage('Inserisci prima il tuo nome.');
+    setMessage('');
+    const userFullName = nome.trim() + ' ' + cognome.trim();
+    if (!userFullName) {
+      setMessage('Nome e cognome obbligatori.');
       return;
     }
-    setMessage('');
     const { error } = await supabase
       .from('votes')
-      .insert([{ user_name: userName, session_code: sessionCode, vote }]);
+      .insert([{ user_name: userFullName, session_code: sessionCode, vote }]);
     if (error) {
-      setMessage('Errore durante il voto (forse hai già votato).');
+      setMessage('Hai già espresso il tuo voto per questa sessione.');
     } else {
       setVoteSent(true);
-      setMessage('Voto registrato correttamente! Grazie.');
+      setMessage('Voto registrato! Grazie per la partecipazione.');
     }
+  }
+
+  function tornaIndietro() {
+    setStep(1);
+    setMessage('');
+    setVoteSent(false);
+    setIsVotingActive(false);
   }
 
   return (
@@ -69,119 +80,166 @@ export default function VotePage() {
         textAlign: 'center',
       }}
     >
-      <h1 style={{ fontSize: '3rem', marginBottom: 24 }}>Schermata Docente per Voto</h1>
-      <div style={{ marginBottom: 30 }}>
-        <input
-          type="text"
-          placeholder="Il tuo nome"
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-          disabled={voteSent}
-          style={{
-            padding: 12,
-            fontSize: '1.1rem',
-            borderRadius: 8,
-            border: 'none',
-            marginRight: 18,
-            width: 210,
-          }}
-        />
-        <input
-          type="text"
-          placeholder="Codice sessione"
-          value={sessionCode}
-          onChange={(e) => setSessionCode(e.target.value)}
-          disabled={voteSent}
-          style={{
-            padding: 12,
-            fontSize: '1.1rem',
-            borderRadius: 8,
-            border: 'none',
-            width: 170,
-          }}
-        />
-        {!voteSent && (
-          <button
-            onClick={checkSession}
+      {step === 1 && (
+        <>
+          <h1 style={{ fontSize: '3rem', marginBottom: 24 }}>Inserisci i tuoi dati</h1>
+          <input
+            type="text"
+            placeholder="Nome"
+            value={nome}
+            onChange={e => setNome(e.target.value)}
             style={{
-              marginLeft: 18,
-              padding: '14px 28px',
-              fontSize: '1.12rem',
-              borderRadius: 9,
+              marginBottom: 20,
+              padding: 12,
+              fontSize: '1.2rem',
+              borderRadius: 8,
               border: 'none',
+              width: 250,
+              display: 'block',
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Cognome"
+            value={cognome}
+            onChange={e => setCognome(e.target.value)}
+            style={{
+              marginBottom: 20,
+              padding: 12,
+              fontSize: '1.2rem',
+              borderRadius: 8,
+              border: 'none',
+              width: 250,
+              display: 'block',
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Codice sessione"
+            value={sessionCode}
+            onChange={e => setSessionCode(e.target.value)}
+            style={{
+              marginBottom: 30,
+              padding: 12,
+              fontSize: '1.2rem',
+              borderRadius: 8,
+              border: 'none',
+              width: 250,
+              display: 'block',
+            }}
+          />
+          <button
+            onClick={verificaSessione}
+            style={{
+              padding: '15px 35px',
+              fontSize: '1.25rem',
               backgroundColor: '#22c55e',
+              borderRadius: 12,
+              border: 'none',
               color: 'white',
-              fontWeight: '600',
+              fontWeight: '700',
               cursor: 'pointer',
-              boxShadow: '0 3px 8px rgba(34, 197, 94, 0.25)',
+              boxShadow: '0 5px 15px rgba(34,197,94,0.3)',
             }}
           >
             Verifica
           </button>
-        )}
-      </div>
-      {message && (
-        <div style={{ margin: '15px 0', color: voteSent ? '#16a34a' : '#fee440', fontWeight: 'bold' }}>
-          {message}
-        </div>
+          {message && <p style={{ marginTop: 20, color: '#ffecb3' }}>{message}</p>}
+        </>
       )}
-      {isVotingActive && !voteSent && (
-        <div style={{ display: 'flex', gap: 30, marginTop: 18 }}>
-          <button
-            onClick={() => submitVote('favorevole')}
-            style={{
-              padding: '16px 40px',
-              backgroundColor: '#10b981',
-              fontSize: '1.3rem',
-              color: 'white',
-              borderRadius: 12,
-              border: 'none',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 5px 10px rgba(16,185,129,0.3)',
-            }}
-          >
-            Favorevole
-          </button>
-          <button
-            onClick={() => submitVote('contrario')}
-            style={{
-              padding: '16px 40px',
-              backgroundColor: '#ef4444',
-              fontSize: '1.3rem',
-              color: 'white',
-              borderRadius: 12,
-              border: 'none',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 5px 10px rgba(239,68,68,0.3)',
-            }}
-          >
-            Contrario
-          </button>
-          <button
-            onClick={() => submitVote('astenuto')}
-            style={{
-              padding: '16px 40px',
-              backgroundColor: '#fbbf24',
-              fontSize: '1.3rem',
-              color: 'white',
-              borderRadius: 12,
-              border: 'none',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 5px 10px rgba(251,191,36,0.3)',
-            }}
-          >
-            Astenuto
-          </button>
-        </div>
-      )}
-      {voteSent && (
-        <div style={{ marginTop: 30, fontSize: '1.25rem', color: '#d1fae5' }}>
-          Hai già espresso il tuo voto.
-        </div>
+
+      {step === 2 && (
+        <>
+          <h1 style={{ fontSize: '3rem', marginBottom: 24 }}>Esprimi il tuo voto</h1>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center' }}>
+            <button
+              onClick={() => submitVote('favorevole')}
+              disabled={voteSent}
+              style={{
+                width: 250,
+                padding: '16px 0',
+                backgroundColor: '#10b981',
+                fontSize: '1.5rem',
+                color: 'white',
+                borderRadius: 12,
+                border: 'none',
+                fontWeight: 'bold',
+                cursor: voteSent ? 'default' : 'pointer',
+                boxShadow: '0 6px 12px rgba(16,185,129,0.3)',
+                opacity: voteSent ? 0.6 : 1,
+              }}
+            >
+              Favorevole
+            </button>
+            <button
+              onClick={() => submitVote('contrario')}
+              disabled={voteSent}
+              style={{
+                width: 250,
+                padding: '16px 0',
+                backgroundColor: '#ef4444',
+                fontSize: '1.5rem',
+                color: 'white',
+                borderRadius: 12,
+                border: 'none',
+                fontWeight: 'bold',
+                cursor: voteSent ? 'default' : 'pointer',
+                boxShadow: '0 6px 12px rgba(239,68,68,0.3)',
+                opacity: voteSent ? 0.6 : 1,
+              }}
+            >
+              Contrario
+            </button>
+            <button
+              onClick={() => submitVote('astenuto')}
+              disabled={voteSent}
+              style={{
+                width: 250,
+                padding: '16px 0',
+                backgroundColor: '#fbbf24',
+                fontSize: '1.5rem',
+                color: 'white',
+                borderRadius: 12,
+                border: 'none',
+                fontWeight: 'bold',
+                cursor: voteSent ? 'default' : 'pointer',
+                boxShadow: '0 6px 12px rgba(251,191,36,0.3)',
+                opacity: voteSent ? 0.6 : 1,
+              }}
+            >
+              Astenuto
+            </button>
+          </div>
+          {message && <p style={{ marginTop: 20, color: '#d1fae5', fontWeight: 'bold' }}>{message}</p>}
+          {voteSent && (
+            <button
+              onClick={tornaIndietro}
+              style={{
+                marginTop: 40,
+                padding: '12px 30px',
+                fontSize: '1.1rem',
+                borderRadius: 10,
+                border: 'none',
+                backgroundColor: '#2563eb',
+                color: 'white',
+                cursor: 'pointer',
+              }}
+            >
+              Modifica dati
+            </button>
+          )}
+        </>
       )}
     </div>
   );
+
+  function tornaIndietro() {
+    setStep(1);
+    setMessage('');
+    setVoteSent(false);
+    setIsVotingActive(false);
+    setNome('');
+    setCognome('');
+    setSessionCode('');
+  }
 }
