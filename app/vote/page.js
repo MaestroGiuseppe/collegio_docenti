@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function VotePage() {
@@ -11,6 +11,26 @@ export default function VotePage() {
   const [isVotingActive, setIsVotingActive] = useState(false);
   const [message, setMessage] = useState('');
   const [voteSent, setVoteSent] = useState(false);
+  const [deliberaNumber, setDeliberaNumber] = useState(null);
+
+  useEffect(() => {
+    let interval;
+    if (step === 2 && sessionCode) {
+      // Polling ogni 5 secondi per aggiornare stato votazione e numero delibera
+      interval = setInterval(async () => {
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('is_active, delibera_number')
+          .eq('code', sessionCode)
+          .single();
+        if (!error && data) {
+          setIsVotingActive(data.is_active);
+          setDeliberaNumber(data.delibera_number);
+        }
+      }, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [step, sessionCode]);
 
   async function verificaSessione() {
     setMessage('');
@@ -31,10 +51,25 @@ export default function VotePage() {
       setMessage('Codice sessione non valido.');
       return;
     }
-    // Passa sempre al passo 2, ma abilita i pulsanti solo se la votazione è attiva
-    setIsVotingActive(data.is_active);
     setStep(2);
+    setIsVotingActive(data.is_active);
+    setDeliberaNumber(data.delibera_number);
+    checkIfUserVoted(); // controlla se utente ha già votato
     setMessage('');
+  }
+
+  async function checkIfUserVoted() {
+    if (!nome || !cognome || !sessionCode) {
+      setVoteSent(false);
+      return;
+    }
+    const userFullName = nome.trim() + ' ' + cognome.trim();
+    const { count, error } = await supabase
+      .from('votes')
+      .select('*', { count: 'exact' })
+      .eq('session_code', sessionCode)
+      .eq('user_name', userFullName);
+    setVoteSent(count > 0);
   }
 
   async function submitVote(vote) {
@@ -48,7 +83,7 @@ export default function VotePage() {
       .from('votes')
       .insert([{ user_name: userFullName, session_code: sessionCode, vote }]);
     if (error) {
-      setMessage('Grazie per aver espresso il tuo voto per questa delibera.');
+      setMessage('Grazie per aver votato.');
     } else {
       setVoteSent(true);
       setMessage('Voto registrato! Grazie per la partecipazione.');
@@ -65,9 +100,9 @@ export default function VotePage() {
     setNome('');
     setCognome('');
     setSessionCode('');
+    setDeliberaNumber(null);
   }
 
-  // Colori attivo / disattivo pulsanti
   const btnColors = {
     favorevole: { active: '#10b981', disabled: '#6ee7b7' },
     contrario: { active: '#ef4444', disabled: '#fca5a5' },
@@ -142,7 +177,7 @@ export default function VotePage() {
             style={{
               padding: '15px 35px',
               fontSize: '1.25rem',
-              backgroundColor: '#2563eb', // colore ben visibile
+              backgroundColor: '#2563eb',
               borderRadius: 12,
               border: 'none',
               color: 'white',
@@ -159,7 +194,10 @@ export default function VotePage() {
 
       {step === 2 && (
         <>
-          <h1 style={{ fontSize: '3rem', marginBottom: 24 }}>Esprimi il tuo voto</h1>
+          <h1 style={{ fontSize: '3rem', marginBottom: 4 }}>
+            Delibera n° {deliberaNumber || '?'}
+          </h1>
+          <h2 style={{ fontSize: '1.8rem', marginBottom: 24 }}>Esprimi il tuo voto</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center' }}>
             <button
               onClick={() => submitVote('favorevole')}
@@ -167,7 +205,8 @@ export default function VotePage() {
               style={{
                 width: 250,
                 padding: '16px 0',
-                backgroundColor: !isVotingActive || voteSent ? btnColors.favorevole.disabled : btnColors.favorevole.active,
+                backgroundColor:
+                  !isVotingActive || voteSent ? btnColors.favorevole.disabled : btnColors.favorevole.active,
                 fontSize: '1.5rem',
                 color: 'white',
                 borderRadius: 12,
@@ -186,7 +225,8 @@ export default function VotePage() {
               style={{
                 width: 250,
                 padding: '16px 0',
-                backgroundColor: !isVotingActive || voteSent ? btnColors.contrario.disabled : btnColors.contrario.active,
+                backgroundColor:
+                  !isVotingActive || voteSent ? btnColors.contrario.disabled : btnColors.contrario.active,
                 fontSize: '1.5rem',
                 color: 'white',
                 borderRadius: 12,
@@ -205,7 +245,8 @@ export default function VotePage() {
               style={{
                 width: 250,
                 padding: '16px 0',
-                backgroundColor: !isVotingActive || voteSent ? btnColors.astenuto.disabled : btnColors.astenuto.active,
+                backgroundColor:
+                  !isVotingActive || voteSent ? btnColors.astenuto.disabled : btnColors.astenuto.active,
                 fontSize: '1.5rem',
                 color: 'white',
                 borderRadius: 12,
@@ -250,5 +291,6 @@ export default function VotePage() {
     setNome('');
     setCognome('');
     setSessionCode('');
+    setDeliberaNumber(null);
   }
 }
