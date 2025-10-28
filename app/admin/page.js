@@ -88,17 +88,20 @@ export default function AdminPage() {
       return;
     }
     setLoading(true);
-    // Creazione nuova sessione con incremento delibera_number
-    const newDeliberaNumber = deliberaNumber ? deliberaNumber + 1 : 1;
 
-    await supabase.from('sessions').upsert([{
-      code: inputCode,
-      is_active: false,
-      delibera_number: newDeliberaNumber
-    }], { onConflict: 'code' });
+    // Se la sessione esiste già, non incrementare delibera_number
+    const { data: existingSession } = await supabase
+      .from('sessions')
+      .select('code')
+      .eq('code', inputCode)
+      .single();
 
+    if (!existingSession) {
+      // Nuova sessione, inizializza delibera_number a 0 (viene incrementata quando si attiva)
+      await supabase.from('sessions').insert([{ code: inputCode, is_active: false, delibera_number: 0 }]);
+      setDeliberaNumber(0);
+    }
     setSessionCode(inputCode);
-    setDeliberaNumber(newDeliberaNumber);
     setInputCode('');
     setIsActive(false);
     setLoading(false);
@@ -107,8 +110,37 @@ export default function AdminPage() {
   async function toggleVoting() {
     if (!sessionCode) return;
     setLoading(true);
-    await supabase.from('sessions').update({ is_active: !isActive }).eq('code', sessionCode);
-    setIsActive(!isActive);
+
+    if (!isActive) {
+      // Attivazione votazione: incremento delibera_number
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('delibera_number')
+        .eq('code', sessionCode)
+        .single();
+
+      let newDeliberaNumber = 1;
+      if (!error && data && data.delibera_number !== null) {
+        newDeliberaNumber = data.delibera_number + 1;
+      }
+
+      await supabase
+        .from('sessions')
+        .update({ is_active: true, delibera_number: newDeliberaNumber })
+        .eq('code', sessionCode);
+
+      setDeliberaNumber(newDeliberaNumber);
+      setIsActive(true);
+    } else {
+      // Disattivazione votazione senza cambiare delibera_number
+      await supabase
+        .from('sessions')
+        .update({ is_active: false })
+        .eq('code', sessionCode);
+
+      setIsActive(false);
+    }
+
     setLoading(false);
   }
 

@@ -14,34 +14,23 @@ export default function VotePage() {
   const [deliberaNumber, setDeliberaNumber] = useState(null);
 
   useEffect(() => {
+    let interval;
     if (step === 2 && sessionCode) {
-      fetchDeliberaNumber();
-      checkIfUserVoted();
+      // Aggiorna stato votazione e numero delibera ogni 5 secondi
+      interval = setInterval(async () => {
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('is_active, delibera_number')
+          .eq('code', sessionCode)
+          .single();
+        if (!error && data) {
+          setIsVotingActive(data.is_active);
+          setDeliberaNumber(data.delibera_number);
+        }
+      }, 5000);
     }
+    return () => clearInterval(interval);
   }, [step, sessionCode]);
-
-  async function fetchDeliberaNumber() {
-    const { data, error } = await supabase
-      .from('sessions')
-      .select('delibera_number, is_active')
-      .eq('code', sessionCode)
-      .single();
-    if (!error && data) {
-      setDeliberaNumber(data.delibera_number || 'N/A');
-      setIsVotingActive(data.is_active);
-    }
-  }
-
-  async function checkIfUserVoted() {
-    if (!nome || !cognome) return;
-    const userFullName = nome.trim() + ' ' + cognome.trim();
-    const { count, error } = await supabase
-      .from('votes')
-      .select('*', { count: 'exact' })
-      .eq('session_code', sessionCode)
-      .eq('user_name', userFullName);
-    setVoteSent(count > 0);
-  }
 
   async function verificaSessione() {
     setMessage('');
@@ -63,8 +52,8 @@ export default function VotePage() {
       return;
     }
     setStep(2);
-    // Solo lo stato supabase decide se i pulsanti sono attivi
     setIsVotingActive(data.is_active);
+    setDeliberaNumber(data.delibera_number);
     setMessage('');
   }
 
@@ -83,6 +72,8 @@ export default function VotePage() {
     } else {
       setVoteSent(true);
       setMessage('Voto registrato! Grazie per la partecipazione.');
+      // Disabilita subito i pulsanti dopo il voto
+      setIsVotingActive(false);
     }
   }
 
