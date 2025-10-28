@@ -14,6 +14,7 @@ export default function AdminPage() {
   const [sessionCode, setSessionCode] = useState('');
   const [inputCode, setInputCode] = useState('');
   const [isActive, setIsActive] = useState(false);
+  const [deliberaNumber, setDeliberaNumber] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const [voteStats, setVoteStats] = useState({
@@ -43,21 +44,26 @@ export default function AdminPage() {
     if (data?.length) {
       setSessionCode(data[0].code);
       setIsActive(data[0].is_active);
+      setDeliberaNumber(data[0].delibera_number || 0);
     } else {
       setSessionCode('');
       setIsActive(false);
+      setDeliberaNumber(0);
     }
   }
 
   async function fetchStats() {
     if (!sessionCode) return;
+
     const { count: presenti } = await supabase
       .from('votes')
       .select('*', { count: 'exact' })
       .eq('session_code', sessionCode);
+
     const favorevoli = await countVotes(sessionCode, 'favorevole');
     const contrari = await countVotes(sessionCode, 'contrario');
     const astenuti = await countVotes(sessionCode, 'astenuto');
+
     setVoteStats({
       presenti,
       favorevoli,
@@ -82,8 +88,17 @@ export default function AdminPage() {
       return;
     }
     setLoading(true);
-    await supabase.from('sessions').upsert([{ code: inputCode, is_active: false }], { onConflict: 'code' });
+    // Creazione nuova sessione con incremento delibera_number
+    const newDeliberaNumber = deliberaNumber ? deliberaNumber + 1 : 1;
+
+    await supabase.from('sessions').upsert([{
+      code: inputCode,
+      is_active: false,
+      delibera_number: newDeliberaNumber
+    }], { onConflict: 'code' });
+
     setSessionCode(inputCode);
+    setDeliberaNumber(newDeliberaNumber);
     setInputCode('');
     setIsActive(false);
     setLoading(false);
@@ -140,6 +155,11 @@ export default function AdminPage() {
       >
         PANNELLO DI CONTROLLO VOTAZIONE
       </h1>
+
+      <p style={{ fontSize: '1.5rem', marginBottom: 15 }}>
+        Delibera n°: <b>{deliberaNumber || 'N/A'}</b>
+      </p>
+
       <div style={{ marginBottom: 30 }}>
         <input
           type="text"
@@ -174,9 +194,11 @@ export default function AdminPage() {
           Salva Codice
         </button>
       </div>
+
       <p style={{ fontSize: '1.2rem', marginBottom: 20 }}>
         Codice sessione attuale: <b>{sessionCode || 'Nessun codice impostato'}</b>
       </p>
+
       <button
         onClick={toggleVoting}
         disabled={loading || !sessionCode}
@@ -190,20 +212,21 @@ export default function AdminPage() {
           color: 'white',
           fontWeight: '700',
           cursor: 'pointer',
-          boxShadow: `0 8px 16px ${
-            isActive ? 'rgba(239, 68, 68, 0.5)' : 'rgba(16, 185, 129, 0.6)'
-          }`,
+          boxShadow: `0 8px 16px ${isActive ? 'rgba(239, 68, 68, 0.5)' : 'rgba(16, 185, 129, 0.6)'}`,
         }}
       >
         {isActive ? 'Disattiva votazione' : 'Attiva votazione'}
       </button>
+
       <hr style={{ margin: '30px 0', borderColor: 'rgba(255,255,255,0.3)', width: '60%' }} />
+
       <h2 style={{ marginBottom: 10, fontSize: '2rem' }}>Statistiche tempo reale</h2>
       <p>Presenze: {voteStats.presenti}</p>
       <p>Voti favorevoli: {voteStats.favorevoli}</p>
       <p>Voti contrari: {voteStats.contrari}</p>
       <p>Voti astenuti: {voteStats.astenuti}</p>
       <p style={{ fontWeight: 'bold', fontSize: '1.35rem' }}>Totale voti: {voteStats.totale}</p>
+
       <button
         onClick={exportPresenze}
         disabled={!sessionCode}
