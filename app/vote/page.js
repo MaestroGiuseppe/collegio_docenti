@@ -31,7 +31,7 @@ export default function VotePage() {
       setMessage('Codice sessione non valido.');
       return;
     }
-    // Mostra i pulsanti comunque, ma abilitali solo se la votazione è attiva
+    // Passa sempre al passo 2, ma abilita i pulsanti solo se la votazione è attiva
     setIsVotingActive(data.is_active);
     setStep(2);
     setMessage('');
@@ -52,7 +52,8 @@ export default function VotePage() {
     } else {
       setVoteSent(true);
       setMessage('Voto registrato! Grazie per la partecipazione.');
-      setIsVotingActive(false); // disabilita subito i pulsanti dopo voto
+      // Disabilita subito i pulsanti dopo il voto
+      setIsVotingActive(false);
     }
   }
 
@@ -65,6 +66,13 @@ export default function VotePage() {
     setCognome('');
     setSessionCode('');
   }
+
+  // Colori attivo / disattivo pulsanti
+  const btnColors = {
+    favorevole: { active: '#10b981', disabled: '#6ee7b7' },
+    contrario: { active: '#ef4444', disabled: '#fca5a5' },
+    astenuto: { active: '#fbbf24', disabled: '#fde68a' },
+  };
 
   return (
     <div
@@ -134,7 +142,7 @@ export default function VotePage() {
             style={{
               padding: '15px 35px',
               fontSize: '1.25rem',
-              backgroundColor: '#2563eb', // colore diverso dal verde di sfondo
+              backgroundColor: '#2563eb', // colore ben visibile
               borderRadius: 12,
               border: 'none',
               color: 'white',
@@ -159,7 +167,7 @@ export default function VotePage() {
               style={{
                 width: 250,
                 padding: '16px 0',
-                backgroundColor: '#10b981',
+                backgroundColor: !isVotingActive || voteSent ? btnColors.favorevole.disabled : btnColors.favorevole.active,
                 fontSize: '1.5rem',
                 color: 'white',
                 borderRadius: 12,
@@ -167,7 +175,7 @@ export default function VotePage() {
                 fontWeight: 'bold',
                 cursor: !isVotingActive || voteSent ? 'default' : 'pointer',
                 boxShadow: '0 6px 12px rgba(16,185,129,0.3)',
-                opacity: !isVotingActive || voteSent ? 0.5 : 1,
+                opacity: !isVotingActive || voteSent ? 0.6 : 1,
               }}
             >
               Favorevole
@@ -178,7 +186,7 @@ export default function VotePage() {
               style={{
                 width: 250,
                 padding: '16px 0',
-                backgroundColor: '#ef4444',
+                backgroundColor: !isVotingActive || voteSent ? btnColors.contrario.disabled : btnColors.contrario.active,
                 fontSize: '1.5rem',
                 color: 'white',
                 borderRadius: 12,
@@ -186,7 +194,7 @@ export default function VotePage() {
                 fontWeight: 'bold',
                 cursor: !isVotingActive || voteSent ? 'default' : 'pointer',
                 boxShadow: '0 6px 12px rgba(239,68,68,0.3)',
-                opacity: !isVotingActive || voteSent ? 0.5 : 1,
+                opacity: !isVotingActive || voteSent ? 0.6 : 1,
               }}
             >
               Contrario
@@ -197,7 +205,7 @@ export default function VotePage() {
               style={{
                 width: 250,
                 padding: '16px 0',
-                backgroundColor: '#fbbf24',
+                backgroundColor: !isVotingActive || voteSent ? btnColors.astenuto.disabled : btnColors.astenuto.active,
                 fontSize: '1.5rem',
                 color: 'white',
                 borderRadius: 12,
@@ -205,7 +213,7 @@ export default function VotePage() {
                 fontWeight: 'bold',
                 cursor: !isVotingActive || voteSent ? 'default' : 'pointer',
                 boxShadow: '0 6px 12px rgba(251,191,36,0.3)',
-                opacity: !isVotingActive || voteSent ? 0.5 : 1,
+                opacity: !isVotingActive || voteSent ? 0.6 : 1,
               }}
             >
               Astenuto
