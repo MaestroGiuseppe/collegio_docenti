@@ -31,11 +31,8 @@ export default function VotePage() {
       setMessage('Codice sessione non valido.');
       return;
     }
-    if (!data.is_active) {
-      setMessage('La votazione non è attiva.');
-      return;
-    }
-    setIsVotingActive(true);
+    // Mostra i pulsanti comunque, ma abilitali solo se la votazione è attiva
+    setIsVotingActive(data.is_active);
     setStep(2);
     setMessage('');
   }
@@ -55,6 +52,7 @@ export default function VotePage() {
     } else {
       setVoteSent(true);
       setMessage('Voto registrato! Grazie per la partecipazione.');
+      setIsVotingActive(false); // disabilita subito i pulsanti dopo voto
     }
   }
 
@@ -63,6 +61,9 @@ export default function VotePage() {
     setMessage('');
     setVoteSent(false);
     setIsVotingActive(false);
+    setNome('');
+    setCognome('');
+    setSessionCode('');
   }
 
   return (
@@ -87,7 +88,7 @@ export default function VotePage() {
             type="text"
             placeholder="Nome"
             value={nome}
-            onChange={e => setNome(e.target.value)}
+            onChange={(e) => setNome(e.target.value)}
             style={{
               marginBottom: 20,
               padding: 12,
@@ -102,7 +103,7 @@ export default function VotePage() {
             type="text"
             placeholder="Cognome"
             value={cognome}
-            onChange={e => setCognome(e.target.value)}
+            onChange={(e) => setCognome(e.target.value)}
             style={{
               marginBottom: 20,
               padding: 12,
@@ -117,7 +118,7 @@ export default function VotePage() {
             type="text"
             placeholder="Codice sessione"
             value={sessionCode}
-            onChange={e => setSessionCode(e.target.value)}
+            onChange={(e) => setSessionCode(e.target.value)}
             style={{
               marginBottom: 30,
               padding: 12,
@@ -133,13 +134,13 @@ export default function VotePage() {
             style={{
               padding: '15px 35px',
               fontSize: '1.25rem',
-              backgroundColor: '#22c55e',
+              backgroundColor: '#2563eb', // colore diverso dal verde di sfondo
               borderRadius: 12,
               border: 'none',
               color: 'white',
               fontWeight: '700',
               cursor: 'pointer',
-              boxShadow: '0 5px 15px rgba(34,197,94,0.3)',
+              boxShadow: '0 5px 15px rgba(37, 99, 235, 0.6)',
             }}
           >
             Verifica
@@ -154,7 +155,7 @@ export default function VotePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center' }}>
             <button
               onClick={() => submitVote('favorevole')}
-              disabled={voteSent}
+              disabled={!isVotingActive || voteSent}
               style={{
                 width: 250,
                 padding: '16px 0',
@@ -164,16 +165,16 @@ export default function VotePage() {
                 borderRadius: 12,
                 border: 'none',
                 fontWeight: 'bold',
-                cursor: voteSent ? 'default' : 'pointer',
+                cursor: !isVotingActive || voteSent ? 'default' : 'pointer',
                 boxShadow: '0 6px 12px rgba(16,185,129,0.3)',
-                opacity: voteSent ? 0.6 : 1,
+                opacity: !isVotingActive || voteSent ? 0.5 : 1,
               }}
             >
               Favorevole
             </button>
             <button
               onClick={() => submitVote('contrario')}
-              disabled={voteSent}
+              disabled={!isVotingActive || voteSent}
               style={{
                 width: 250,
                 padding: '16px 0',
@@ -183,16 +184,16 @@ export default function VotePage() {
                 borderRadius: 12,
                 border: 'none',
                 fontWeight: 'bold',
-                cursor: voteSent ? 'default' : 'pointer',
+                cursor: !isVotingActive || voteSent ? 'default' : 'pointer',
                 boxShadow: '0 6px 12px rgba(239,68,68,0.3)',
-                opacity: voteSent ? 0.6 : 1,
+                opacity: !isVotingActive || voteSent ? 0.5 : 1,
               }}
             >
               Contrario
             </button>
             <button
               onClick={() => submitVote('astenuto')}
-              disabled={voteSent}
+              disabled={!isVotingActive || voteSent}
               style={{
                 width: 250,
                 padding: '16px 0',
@@ -202,9 +203,9 @@ export default function VotePage() {
                 borderRadius: 12,
                 border: 'none',
                 fontWeight: 'bold',
-                cursor: voteSent ? 'default' : 'pointer',
+                cursor: !isVotingActive || voteSent ? 'default' : 'pointer',
                 boxShadow: '0 6px 12px rgba(251,191,36,0.3)',
-                opacity: voteSent ? 0.6 : 1,
+                opacity: !isVotingActive || voteSent ? 0.5 : 1,
               }}
             >
               Astenuto
