@@ -5,65 +5,109 @@ import { supabase } from '../../lib/supabaseClient';
 
 export default function AdminPanel() {
   const [sessionId, setSessionId] = useState('');
-  const [votes, setVotes] = useState([]);
+  const [stats, setStats] = useState({
+    presenti: 0,
+    favorevoli: 0,
+    contrari: 0,
+    astenuti: 0,
+    totale: 0,
+  });
+  const [loading, setLoading] = useState(false);
 
-  // Carica dati voti per la sessione indicata
-  const fetchVotes = async () => {
-    if (!sessionId) return;
-    const { data, error } = await supabase
+  // Funzione per caricare le statistiche di voto per una sessione
+  const fetchStats = async (session_id) => {
+    if (!session_id) return;
+
+    setLoading(true);
+
+    // Conta totali presenti (voti nella sessione)
+    const { count: presenti } = await supabase
       .from('votes')
-      .select('id, participant_id, choice, created_at')
-      .eq('session_id', sessionId);
-    if (!error) {
-      setVotes(data);
-    }
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', session_id);
+
+    // Conta voti favorevoli
+    const { count: favorevoli } = await supabase
+      .from('votes')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', session_id)
+      .eq('choice', 'favorevole');
+
+    // Conta voti contrari
+    const { count: contrari } = await supabase
+      .from('votes')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', session_id)
+      .eq('choice', 'contrario');
+
+    // Conta astenuti
+    const { count: astenuti } = await supabase
+      .from('votes')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', session_id)
+      .eq('choice', 'astenuto');
+
+    setStats({
+      presenti: presenti || 0,
+      favorevoli: favorevoli || 0,
+      contrari: contrari || 0,
+      astenuti: astenuti || 0,
+      totale: (favorevoli || 0) + (contrari || 0) + (astenuti || 0),
+    });
+    setLoading(false);
   };
 
-  // Polling ogni 3 secondi per aggiornare i dati
+  // Polling ogni 3 secondi per aggiornare le statistiche
   useEffect(() => {
-    if (!sessionId) return;
-    fetchVotes();
-    const intervalId = setInterval(fetchVotes, 3000);
-    return () => clearInterval(intervalId);
+    if (!sessionId) {
+      setStats({
+        presenti: 0,
+        favorevoli: 0,
+        contrari: 0,
+        astenuti: 0,
+        totale: 0,
+      });
+      return;
+    }
+    fetchStats(sessionId);
+    const interval = setInterval(() => fetchStats(sessionId), 3000);
+    return () => clearInterval(interval);
   }, [sessionId]);
 
   return (
-    <div style={{ padding: 20, backgroundColor: '#222', color: 'white', minHeight: '100vh' }}>
-      <h1>Pannello Amministratore - Voti sessione</h1>
+    <div style={{ padding: 30, minHeight: '100vh', backgroundColor: '#1e293b', color: 'white' }}>
+      <h1 style={{ marginBottom: 20 }}>Pannello Amministratore - Statistiche Voti</h1>
 
       <input
         type="text"
         placeholder="Inserisci UUID sessione"
         value={sessionId}
         onChange={(e) => setSessionId(e.target.value)}
-        style={{ padding: 10, width: 350, fontSize: 16, marginBottom: 20 }}
+        style={{
+          width: 320,
+          padding: 12,
+          fontSize: 16,
+          borderRadius: 6,
+          border: 'none',
+          marginBottom: 24,
+          boxShadow: '0 0 8px rgba(255,255,255,0.1)',
+          backgroundColor: '#334155',
+          color: 'white'
+        }}
       />
 
-      {!sessionId && <p>Inserisci UUID della sessione sopra e attendi i voti.</p>}
-
-      {votes.length === 0 && sessionId && <p>Nessun voto trovato per questa sessione.</p>}
-
-      {votes.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid white' }}>
-              <th style={{ textAlign: 'left', padding: 8 }}>ID voto</th>
-              <th style={{ textAlign: 'left', padding: 8 }}>ID partecipante</th>
-              <th style={{ textAlign: 'left', padding: 8 }}>Voto</th>
-              <th style={{ textAlign: 'left', padding: 8 }}>Data creazione</th>
-            </tr>
-          </thead>
-          <tbody>
-            {votes.map((v) => (
-              <tr key={v.id} style={{ borderBottom: '1px solid #555' }}>
-                <td style={{ padding: 8 }}>{v.id}</td>
-                <td style={{ padding: 8 }}>{v.participant_id}</td>
-                <td style={{ padding: 8 }}>{v.choice}</td>
-                <td style={{ padding: 8 }}>{new Date(v.created_at).toLocaleString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {loading ? (
+        <p>Caricamento statistiche in corso...</p>
+      ) : (
+        <div style={{ fontSize: 18 }}>
+          <p><b>Presenze totali (voti):</b> {stats.presenti}</p>
+          <p><b>Voti favorevoli:</b> {stats.favorevoli}</p>
+          <p><b>Voti contrari:</b> {stats.contrari}</p>
+          <p><b>Voti astenuti:</b> {stats.astenuti}</p>
+          <p style={{ fontWeight: 'bold', fontSize: 20, marginTop: 20 }}>
+            Totale voti espressi: {stats.totale}
+          </p>
+        </div>
       )}
     </div>
   );
