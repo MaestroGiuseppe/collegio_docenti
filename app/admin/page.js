@@ -5,6 +5,12 @@ import { supabase } from '../../lib/supabaseClient';
 
 export default function AdminPanel() {
   const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const [participantCode, setParticipantCode] = useState('');
+  const [presenceMsg, setPresenceMsg] = useState('');
+
   const [stats, setStats] = useState({
     presenti: 0,
     favorevoli: 0,
@@ -12,11 +18,10 @@ export default function AdminPanel() {
     astenuti: 0,
     totale: 0,
   });
-  const [loading, setLoading] = useState(true);
 
-  // Carica l'ultima sessione dal database
+  // Carica l'ultima sessione disponibile
   useEffect(() => {
-    const fetchLastSession = async () => {
+    async function fetchLastSession() {
       setLoading(true);
       const { data, error } = await supabase
         .from('sessions')
@@ -24,43 +29,51 @@ export default function AdminPanel() {
         .order('created_at', { ascending: false })
         .limit(1);
 
-      if (data && data.length > 0) {
-        setSession(data[0]);
-      } else {
-        setSession(null);
+      if (error) {
+        setError('Errore caricamento sessione.');
+        setLoading(false);
+        return;
       }
+      if (data.length === 0) {
+        setError('Nessuna sessione disponibile.');
+        setLoading(false);
+        return;
+      }
+      setSession(data[0]);
       setLoading(false);
-    };
+    }
 
     fetchLastSession();
   }, []);
 
-  // Carica le statistiche ogni 3 secondi
+  // Carica statistiche voti aggiornate ogni 3 secondi
   useEffect(() => {
     if (!session) return;
-    const fetchStats = async () => {
-      // Presenze = quanti voti per questa sessione
+
+    async function loadStats() {
+      const sessionId = session.id;
+
       const { count: presenti } = await supabase
         .from('votes')
-        .select('id', { count: 'exact', head: true })
-        .eq('session_id', session.id);
+        .select('id', { head: true, count: 'exact' })
+        .eq('session_id', sessionId);
 
       const { count: favorevoli } = await supabase
         .from('votes')
-        .select('id', { count: 'exact', head: true })
-        .eq('session_id', session.id)
+        .select('id', { head: true, count: 'exact' })
+        .eq('session_id', sessionId)
         .eq('choice', 'favorevole');
 
       const { count: contrari } = await supabase
         .from('votes')
-        .select('id', { count: 'exact', head: true })
-        .eq('session_id', session.id)
+        .select('id', { head: true, count: 'exact' })
+        .eq('session_id', sessionId)
         .eq('choice', 'contrario');
 
       const { count: astenuti } = await supabase
         .from('votes')
-        .select('id', { count: 'exact', head: true })
-        .eq('session_id', session.id)
+        .select('id', { head: true, count: 'exact' })
+        .eq('session_id', sessionId)
         .eq('choice', 'astenuto');
 
       setStats({
@@ -70,74 +83,169 @@ export default function AdminPanel() {
         astenuti: astenuti || 0,
         totale: (favorevoli || 0) + (contrari || 0) + (astenuti || 0),
       });
-    };
+    }
 
-    fetchStats();
-    const interval = setInterval(fetchStats, 3000);
+    loadStats();
+    const interval = setInterval(loadStats, 3000);
     return () => clearInterval(interval);
   }, [session]);
 
-  // Gestisce attivazione/disattivazione votazione
-  const handleToggleVoting = async () => {
+  // Cambia stato votazione attiva/disattiva
+  async function toggleVoting() {
     if (!session) return;
+
     const { data, error } = await supabase
       .from('sessions')
       .update({ is_active: !session.is_active })
       .eq('id', session.id)
       .select('*');
-    if (data && data.length > 0) setSession(data[0]);
-  };
 
-  if (loading) {
-    return (
-      <div style={{ padding: 30, color: 'white', background: '#1e293b', minHeight: '100vh' }}>
-        <h1>Pannello Amministratore</h1>
-        <p>Caricamento dati...</p>
-      </div>
-    );
+    if (error) {
+      setError('Errore nel cambiare stato votazione.');
+      return;
+    }
+    setSession(data[0]);
+  }
+
+  // Inserisce la presenza (codice partecipante)
+  async function insertPresence() {
+    if (!participantCode) {
+      setPresenceMsg('Inserisci un codice valido.');
+      return;
+    }
+    if (!session) {
+      setPresenceMsg('Sessione non disponibile.');
+      return;
+    }
+
+    // Recupera participant_id dalla tabella participants col codice utente (campo da adattare)
+    // Qui assumiamo che participant_code sia salvato nel campo 'code' della tabella participants
+    const { data: participantData, error: participantError } = await supabase
+      .from('participants')
+      .select('id')
+      .eq('code', participantCode)
+      .limit(1)
+      .single();
+
+    if (participantError || !participantData) {
+      setPresenceMsg('Codice partecipante non trovato.');
+      return;
+    }
+
+    // Controlla se ha già votato per questa sessione (presenza)
+    const { data: voteExists, error: voteCheckError } = await supabase
+      .from('votes')
+      .select('id')
+      .eq('participant_id', participantData.id)
+      .eq('session_id', session.id)
+      .limit(1)
+      .single();
+
+    if (voteExists) {
+      setPresenceMsg('Presenza già registrata.');
+      return;
+    }
+
+    // Inserisce una presenza: niente voto scelto, solo segna presenza (potresti usare choice 'presente' o null)
+    const { error: insertError } = await supabase
+      .from('votes')
+      .insert([{ participant_id: participantData.id, session_id: session.id, choice: 'presente' }]);
+
+    if (insertError) {
+      setPresenceMsg('Errore durante registrazione presenza.');
+      return;
+    }
+
+    setPresenceMsg('Presenza registrata con successo!');
+    setParticipantCode('');
   }
 
   return (
-    <div style={{ padding: 30, color: 'white', background: '#1e293b', minHeight: '100vh' }}>
+    <div style={{
+      padding: 30,
+      minHeight: '100vh',
+      backgroundColor: '#1e293b',
+      color: 'white',
+      fontFamily: 'Arial, sans-serif',
+    }}>
       <h1>Pannello Amministratore</h1>
-      {session ? (
+
+      {loading && <p>Caricamento dati...</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+
+      {session && (
         <>
-          <p><b>Codice sessione:</b> {session.code}</p>
-          <p><b>UUID sessione:</b> {session.id}</p>
-          <p><b>Delibera numero:</b> {session.delibera_number}</p>
-          <p><b>Status votazione:</b> {session.is_active ? 'ATTIVA' : 'DISATTIVA'}</p>
+          <p><b>Codice univoco sessione:</b> {session.code}</p>
+          <p><b>Votazione:</b> {session.is_active ? '✅ Attiva' : '❌ Disattiva'}</p>
+
           <button
+            onClick={toggleVoting}
             style={{
-              margin: '16px 0',
-              padding: '14px 24px',
+              marginTop: 16,
+              padding: '12px 24px',
+              fontWeight: 'bold',
+              fontSize: 16,
               borderRadius: 8,
               border: 'none',
-              background: session.is_active ? '#ef4444' : '#10b981',
               color: 'white',
-              fontWeight: 700,
-              fontSize: 18,
+              backgroundColor: session.is_active ? '#ef4444' : '#10b981',
               cursor: 'pointer',
-            }}
-            onClick={handleToggleVoting}
-          >
+            }}>
             {session.is_active ? 'Disattiva votazione' : 'Attiva votazione'}
           </button>
-          <hr style={{ margin: '18px 0', borderColor: '#334155' }} />
-          <h2 style={{ marginBottom: 10, fontSize: '1.4rem' }}>Statistiche tempo reale</h2>
-          <p>Presenze (voti espressi): {stats.presenti}</p>
+
+          <hr style={{ margin: '30px 0', borderColor: '#334155' }} />
+
+          <h2>Inserisci presenza partecipante</h2>
+          <input
+            type="text"
+            placeholder="Inserisci codice partecipante"
+            value={participantCode}
+            onChange={(e) => setParticipantCode(e.target.value)}
+            style={{
+              padding: 10,
+              fontSize: 16,
+              borderRadius: 6,
+              border: 'none',
+              width: '250px',
+              marginRight: 12,
+              backgroundColor: '#475569',
+              color: 'white',
+            }}
+            disabled={!session.is_active}
+          />
+          <button
+            onClick={insertPresence}
+            disabled={!session.is_active}
+            style={{
+              padding: '10px 18px',
+              fontWeight: 'bold',
+              fontSize: 16,
+              borderRadius: 6,
+              border: 'none',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              cursor: session.is_active ? 'pointer' : 'not-allowed',
+            }}
+          >
+            Registra Presenza
+          </button>
+          {presenceMsg && <p style={{ marginTop: 10 }}>{presenceMsg}</p>}
+
+          <hr style={{ margin: '30px 0', borderColor: '#334155' }} />
+
+          <h2>Statistiche voti aggiornate</h2>
+          <p>Presenze totali: {stats.presenti}</p>
           <p>Voti favorevoli: {stats.favorevoli}</p>
           <p>Voti contrari: {stats.contrari}</p>
           <p>Voti astenuti: {stats.astenuti}</p>
-          <p style={{
-            fontWeight: 'bold',
-            fontSize: '1.15rem',
-            marginTop: 14,
-            color: '#eab308'
-          }}>Totale voti espressi: {stats.totale}</p>
+          <p style={{ fontWeight: 'bold', marginTop: 10 }}>
+            Totale voti espressi: {stats.totale}
+          </p>
         </>
-      ) : (
-        <p>Nessuna sessione trovata.</p>
       )}
+
+      {!loading && !session && <p>Nessuna sessione attiva trovata.</p>}
     </div>
   );
 }
