@@ -19,10 +19,11 @@ export default function AdminPanel() {
     totale: 0,
   });
 
-  // Carica l'ultima sessione disponibile
+  // Carica l'ultima sessione attiva o comunque ultima inserita
   useEffect(() => {
     async function fetchLastSession() {
       setLoading(true);
+
       const { data, error } = await supabase
         .from('sessions')
         .select('*')
@@ -34,11 +35,13 @@ export default function AdminPanel() {
         setLoading(false);
         return;
       }
+
       if (data.length === 0) {
         setError('Nessuna sessione disponibile.');
         setLoading(false);
         return;
       }
+
       setSession(data[0]);
       setLoading(false);
     }
@@ -46,7 +49,7 @@ export default function AdminPanel() {
     fetchLastSession();
   }, []);
 
-  // Carica statistiche voti aggiornate ogni 3 secondi
+  // Aggiorna statistiche voti ogni 3 secondi
   useEffect(() => {
     if (!session) return;
 
@@ -90,7 +93,7 @@ export default function AdminPanel() {
     return () => clearInterval(interval);
   }, [session]);
 
-  // Cambia stato votazione attiva/disattiva
+  // Attiva o disattiva votazione
   async function toggleVoting() {
     if (!session) return;
 
@@ -104,22 +107,23 @@ export default function AdminPanel() {
       setError('Errore nel cambiare stato votazione.');
       return;
     }
+
     setSession(data[0]);
   }
 
-  // Inserisce la presenza (codice partecipante)
+  // Registra presenza con codice univoco
   async function insertPresence() {
     if (!participantCode) {
-      setPresenceMsg('Inserisci un codice valido.');
-      return;
-    }
-    if (!session) {
-      setPresenceMsg('Sessione non disponibile.');
+      setPresenceMsg('Inserisci un codice univoco valido.');
       return;
     }
 
-    // Recupera participant_id dalla tabella participants col codice utente (campo da adattare)
-    // Qui assumiamo che participant_code sia salvato nel campo 'code' della tabella participants
+    if (!session) {
+      setPresenceMsg('Nessuna sessione attiva.');
+      return;
+    }
+
+    // Recupera participant_id a partire dal codice univoco
     const { data: participantData, error: participantError } = await supabase
       .from('participants')
       .select('id')
@@ -128,12 +132,12 @@ export default function AdminPanel() {
       .single();
 
     if (participantError || !participantData) {
-      setPresenceMsg('Codice partecipante non trovato.');
+      setPresenceMsg('Codice univoco non trovato.');
       return;
     }
 
-    // Controlla se ha già votato per questa sessione (presenza)
-    const { data: voteExists, error: voteCheckError } = await supabase
+    // Controlla se già presente
+    const { data: existingVote, error: voteCheckError } = await supabase
       .from('votes')
       .select('id')
       .eq('participant_id', participantData.id)
@@ -141,12 +145,12 @@ export default function AdminPanel() {
       .limit(1)
       .single();
 
-    if (voteExists) {
+    if (existingVote) {
       setPresenceMsg('Presenza già registrata.');
       return;
     }
 
-    // Inserisce una presenza: niente voto scelto, solo segna presenza (potresti usare choice 'presente' o null)
+    // Inserisci presenza (con choice "presente" o altro che vuoi)
     const { error: insertError } = await supabase
       .from('votes')
       .insert([{ participant_id: participantData.id, session_id: session.id, choice: 'presente' }]);
@@ -156,18 +160,12 @@ export default function AdminPanel() {
       return;
     }
 
-    setPresenceMsg('Presenza registrata con successo!');
+    setPresenceMsg('Presenza registrata correttamente!');
     setParticipantCode('');
   }
 
   return (
-    <div style={{
-      padding: 30,
-      minHeight: '100vh',
-      backgroundColor: '#1e293b',
-      color: 'white',
-      fontFamily: 'Arial, sans-serif',
-    }}>
+    <div style={{ padding: 30, backgroundColor: '#1e293b', color: 'white', minHeight: '100vh' }}>
       <h1>Pannello Amministratore</h1>
 
       {loading && <p>Caricamento dati...</p>}
@@ -190,16 +188,17 @@ export default function AdminPanel() {
               color: 'white',
               backgroundColor: session.is_active ? '#ef4444' : '#10b981',
               cursor: 'pointer',
-            }}>
+            }}
+          >
             {session.is_active ? 'Disattiva votazione' : 'Attiva votazione'}
           </button>
 
           <hr style={{ margin: '30px 0', borderColor: '#334155' }} />
 
-          <h2>Inserisci presenza partecipante</h2>
+          <h2>Registra presenza partecipante</h2>
           <input
             type="text"
-            placeholder="Inserisci codice partecipante"
+            placeholder="Inserisci codice univoco"
             value={participantCode}
             onChange={(e) => setParticipantCode(e.target.value)}
             style={{
@@ -212,11 +211,9 @@ export default function AdminPanel() {
               backgroundColor: '#475569',
               color: 'white',
             }}
-            disabled={!session.is_active}
           />
           <button
             onClick={insertPresence}
-            disabled={!session.is_active}
             style={{
               padding: '10px 18px',
               fontWeight: 'bold',
@@ -225,21 +222,21 @@ export default function AdminPanel() {
               border: 'none',
               backgroundColor: '#3b82f6',
               color: 'white',
-              cursor: session.is_active ? 'pointer' : 'not-allowed',
+              cursor: 'pointer',
             }}
           >
-            Registra Presenza
+            Registra presenza
           </button>
           {presenceMsg && <p style={{ marginTop: 10 }}>{presenceMsg}</p>}
 
           <hr style={{ margin: '30px 0', borderColor: '#334155' }} />
 
-          <h2>Statistiche voti aggiornate</h2>
+          <h2>Statistiche voti</h2>
           <p>Presenze totali: {stats.presenti}</p>
           <p>Voti favorevoli: {stats.favorevoli}</p>
           <p>Voti contrari: {stats.contrari}</p>
           <p>Voti astenuti: {stats.astenuti}</p>
-          <p style={{ fontWeight: 'bold', marginTop: 10 }}>
+          <p style={{ fontWeight: 'bold', fontSize: 18, marginTop: 10 }}>
             Totale voti espressi: {stats.totale}
           </p>
         </>
